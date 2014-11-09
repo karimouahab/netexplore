@@ -12,6 +12,7 @@ from optparse import OptionParser   # For command line parsing
 import subprocess                   # For shell commands
 import json                         # For json input/output files
 import re                           # For ping output parsing
+import socket                       # For gethostname
 import time
 import collections
 import smtplib
@@ -264,7 +265,7 @@ def getHtmlComparisonToReference(srcMachine, tgtMachine, results):
     return "bgcolor=" + OK_COLOR + ">" + newPing.avg    
 
 def generateHtmlTable(results):
-    htmlTable = '<table border="1" style="width:100%" cellspacing="0.5" cellpadding="0" border="1" align="center" bgcolor="#999999">'
+    htmlTable = '<table border="1" style="width:100%" cellspacing="0.5" cellpadding="0" border="1" align="center" bgcolor="#FF7F50">'
     #Draw the header line
     htmlTable += "<tr><td align='center'>From / To</td>"
     for src in results:
@@ -296,6 +297,7 @@ def generateHtmlTable(results):
 """Given a reference and a new HTML version of the RTT tables, generate the final HTML body
 """ 
 def generateOutput(newTable, refTable):
+    hostname = socket.gethostname()
     htmlOut = '''  
 <html>  
     <head>  
@@ -319,10 +321,12 @@ def generateOutput(newTable, refTable):
         <b>Reference average RTT (microseconds) :</b>
         <br>
         {}
+        <br>
+        <i>Program was executed from {}</i>
     </body>  
 </html>
     
-    '''.format(time.strftime("%d/%m/%Y at %H:%M:%S"), newTable, getPingAlertHtmlMessages(), getAllErrorsHtmlMessages(), refTable)
+    '''.format(time.strftime("%d/%m/%Y at %H:%M:%S"), newTable, getPingAlertHtmlMessages(), getAllErrorsHtmlMessages(), refTable, hostname)
     #with open("pings.html", "w") as output:
     #    output.write(htmlOut)
     return htmlOut
