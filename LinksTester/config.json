@@ -8,6 +8,7 @@
 	    "ssh_options"		: "-o 'PasswordAuthentication=no' -o 'StrictHostKeyChecking=no' -o 'ConnectTimeout=10'",
 	    "reference_file"		: "reference_rtt.json",
 	    "deviation_percent" 	: 5,
+	    "deviation_micros"		: 100,
 	    "ping_cmd"			: "ping",
 	    "ping_count"		: 1,
 	    "ping_timeout"		: 20,

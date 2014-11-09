@@ -227,7 +227,7 @@ def getPingAlertHtmlMessages():
             result += "<li>" + str(alert) + '</li><br>'
         result += "</ul>"
     if not result == "":
-        result += "<br><i>Since changes have been detected, you may want to reset the reference rtt (-g option), or (unlikely) increase the deviation tolerance (current value : " + str(jsonconfig["deviation_percent"]) +" %) </i>"       
+        result += "<br><i>Since changes have been detected, you may want to reset the reference rtt (-g option), or (unlikely) increase the deviation tolerances (current value : " + str(jsonconfig["deviation_percent"]) +" % or " + str(jsonconfig["deviation_micros"]) + " micros ) </i>"       
     return  result
 
 """Returns an HTML view of all the error messages (an error is NOT a ping alert)
@@ -252,14 +252,17 @@ def getHtmlComparisonToReference(srcMachine, tgtMachine, results):
     newPing = results[srcMachine][tgtMachine]
     refPing = getReferencePing(srcMachine, tgtMachine)
     diff = 0
-    deviationPercent = jsonconfig["deviation_percent"]
+    diffPercent = 0
+    deviationPercent    = jsonconfig["deviation_percent"]
+    deviationMicros     = jsonconfig["deviation_micros"]
     if isfloat(newPing.avg) and isfloat(refPing.avg):
-        diff = 100 * (1 - float(newPing.avg) / float(refPing.avg))
+        diffPercent = 100 * (1 - float(newPing.avg) / float(refPing.avg))
+        diff = abs(float(newPing.avg) - float(refPing.avg))
      
-    if diff > 0 and diff > deviationPercent: 
+    if diffPercent > 0 and (diffPercent > deviationPercent or diff > deviationMicros): 
         pingOKAlerts.append(PingAlert(srcMachine, tgtMachine, newPing.avg, refPing.avg))
         return "bgcolor=" + BET_COLOR + "><b>" + newPing.avg + "</b>" 
-    elif diff < 0 and -diff > deviationPercent:
+    elif diffPercent < 0 and (-diffPercent > deviationPercent or diff > deviationMicros):
         pingNOKAlerts.append(PingAlert(srcMachine, tgtMachine, newPing.avg, refPing.avg))
         return "bgcolor=" + NOK_COLOR + "><b>" + newPing.avg + "</b>" 
     return "bgcolor=" + OK_COLOR + ">" + newPing.avg    
