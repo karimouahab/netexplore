@@ -81,7 +81,7 @@ class PingAlert():
 """  
 def parseConfigurationFile(fileName):
     global machines, jsonconfig
-    if not cmdLineOptions.quiet:
+    if cmdLineOptions.verbose:
         print "Getting servers configuration from " + fileName
     with open(fileName) as machinesFile:
         jsonconfig  = json.load(machinesFile)["configuration"]
@@ -90,7 +90,7 @@ def parseConfigurationFile(fileName):
 """Parse the reference average rtt file. The result is stored in refMatrix
 """ 
 def parseReferenceFile(fileName):
-    if not cmdLineOptions.quiet:
+    if cmdLineOptions.verbose:
         print "Getting reference rtt from " + fileName
     with open(fileName) as referenceFile:
         for line in referenceFile:
@@ -130,9 +130,9 @@ def parseConfiguration():
     parser.add_option("-g", "--gen-reference",
                       dest="genReference", default=False,
                       help="generate a new rtt reference file to GEN_REFERENCE from the run") 
-    parser.add_option("-q", "--quiet",
-                      dest="quiet", default=True,
-                      help="don't print ping messages to stdout")
+    parser.add_option("-v", "--verbose",
+                      dest="verbose", default=False,
+                      help="verbose output to stdout")
     
     (cmdLineOptions, args)   = parser.parse_args() 
     
@@ -172,7 +172,7 @@ def executePings():
     sshCmd      = jsonconfig["ssh_cmd"]
     sshOptions  = jsonconfig["ssh_options"]
     pingCmd     = jsonconfig["ping_cmd"] + " -q -c " + str(jsonconfig["ping_count"]) + " -w " + str(jsonconfig["ping_timeout"])
-    if not cmdLineOptions.quiet:
+    if cmdLineOptions.verbose:
         print "ping command is : " + pingCmd
     
     for source in machines:
@@ -187,7 +187,10 @@ def executePings():
                 output = "-"
             else:
                 try:
-                    output = subprocess.check_output("{} {} {}@{} {} {} | grep rtt".format(sshCmd, sshOptions, sshUser, srcHost, pingCmd, tgtHost) , shell=True)
+                    cmd = "{} {} {}@{} {} {} | grep rtt".format(sshCmd, sshOptions, sshUser, srcHost, pingCmd, tgtHost)
+                    if cmdLineOptions.verbose:
+                        print cmd
+                    output = subprocess.check_output(cmd , shell=True)
                 except Exception as e:
                     allErrors.append("An error occurred while trying to ping from {} to {} : {}".format(srcHost, tgtHost, e))
                     output = ""
@@ -202,7 +205,7 @@ def executePings():
 """In non quiet mode, output the ping matrix to the standard output
 """ 
 def printPings(results):
-    if cmdLineOptions.quiet:
+    if not cmdLineOptions.verbose:
         return
     for src in results:
         for tgt in results[src]:
@@ -223,7 +226,7 @@ def getPingAlertHtmlMessages():
             result += "<li>" + str(alert) + '</li><br>'
         result += "</ul>"
     if not result == "":
-        result += "<br><i>Since changes have been detected, you may want to reset the reference rtt (-g option), or (unlikely) increase the deviation tolerance (current value :" + str(jsonconfig["deviation_percent"]) +" %) </i>"       
+        result += "<br><i>Since changes have been detected, you may want to reset the reference rtt (-g option), or (unlikely) increase the deviation tolerance (current value : " + str(jsonconfig["deviation_percent"]) +" %) </i>"       
     return  result
 
 """Returns an HTML view of all the error messages (an error is NOT a ping alert)
@@ -322,24 +325,27 @@ def generateOutput(newTable, refTable):
     return htmlOut
 
 def sendReport(htmlReport):
-    if not jsonconfig["always_send_report"] and len(pingOKAlerts) == 0 and len(pingNOKAlerts) == 0 :
+    hasAlerts = len(pingOKAlerts) == 0 and len(pingNOKAlerts) == 0 
+    if not jsonconfig["always_send_report"] and hasAlerts:
         return
     
     fromMail    = jsonconfig["mail_from"]
     toMail      = jsonconfig["mail_to"]
-    if not cmdLineOptions.quiet:
+    if cmdLineOptions.verbose:
         print "sending report from {} to {}".format(fromMail, toMail)
     
     # Create a html message
     msg = MIMEText(htmlReport, 'html')
-    
-    msg['Subject']  = "[ALERT][Network Lines] {} regression{} - {} improvement{}".format(
+    header = "[INFO]"
+    if hasAlerts:
+        header = "[ALERT]"
+    msg['Subject']  = header + "[Network Lines] {} regression{} - {} improvement{}".format(
                                                                                          len(pingNOKAlerts),
                                                                                          "s" if len(pingNOKAlerts) > 1 else "",
                                                                                          len(pingOKAlerts),
                                                                                          "s" if len(pingOKAlerts) > 1 else "")
-    msg['From']     = fromMail
-    msg['To']       = toMail
+    msg['From'] = fromMail
+    msg['To']   = toMail
     
     # Send the message via our own SMTP server, but don't include the
     # envelope header.
