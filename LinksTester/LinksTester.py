@@ -254,17 +254,17 @@ def getHtmlComparisonToReference(srcMachine, tgtMachine, results):
     deviationPercent = jsonconfig["deviation_percent"]
     if isfloat(newPing.avg) and isfloat(refPing.avg):
         diff = 100 * (1 - float(newPing.avg) / float(refPing.avg))
-    color = OK_COLOR
-    if diff > 0 and diff > deviationPercent:
-        color =  BET_COLOR
+     
+    if diff > 0 and diff > deviationPercent: 
         pingOKAlerts.append(PingAlert(srcMachine, tgtMachine, newPing.avg, refPing.avg))
+        return "bgcolor=" + BET_COLOR + "><b>" + newPing.avg + "</b>" 
     elif diff < 0 and -diff > deviationPercent:
-        color =  NOK_COLOR
         pingNOKAlerts.append(PingAlert(srcMachine, tgtMachine, newPing.avg, refPing.avg))
-    return "bgcolor=" + color + ">" + newPing.avg    
+        return "bgcolor=" + NOK_COLOR + "><b>" + newPing.avg + "</b>" 
+    return "bgcolor=" + OK_COLOR + ">" + newPing.avg    
 
 def generateHtmlTable(results):
-    htmlTable = '<table border="1" style="width:100%" cellspacing="1" cellpadding="0" border="0" align="center" bgcolor="#999999">'
+    htmlTable = '<table border="1" style="width:100%" cellspacing="0.5" cellpadding="0" border="1" align="center" bgcolor="#999999">'
     #Draw the header line
     htmlTable += "<tr><td align='center'>From / To</td>"
     for src in results:
@@ -304,29 +304,32 @@ def generateOutput(newTable, refTable):
     <body>
         <br>
         <br>
-        <b>Latest RTT (microseconds) on {} :</b>
-        {}
-        <br>
+        <b>Latest average RTT (microseconds) on {} :</b>
         <br>
         {}
         <br>
         <br>
         {}
         <br>
-        <br>        
-        <b>Reference RTT (microseconds) :</b>
+        <hr>
+        <br>
+        {}
+        <br>
+        <br>     
+        <b>Reference average RTT (microseconds) :</b>
+        <br>
         {}
     </body>  
 </html>
     
-    '''.format(time.strftime("%d/%m/%Y %H:%M:%S"), newTable, getPingAlertHtmlMessages(), getAllErrorsHtmlMessages(), refTable)
+    '''.format(time.strftime("%d/%m/%Y at %H:%M:%S"), newTable, getPingAlertHtmlMessages(), getAllErrorsHtmlMessages(), refTable)
     #with open("pings.html", "w") as output:
     #    output.write(htmlOut)
     return htmlOut
 
 def sendReport(htmlReport):
     hasAlerts = len(pingOKAlerts) != 0 or len(pingNOKAlerts) != 0
-    if not jsonconfig["always_send_report"] and hasAlerts:
+    if not jsonconfig["always_send_report"] and not hasAlerts:
         return
     
     fromMail    = jsonconfig["mail_from"]
