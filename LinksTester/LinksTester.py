@@ -325,7 +325,7 @@ def generateOutput(newTable, refTable):
     return htmlOut
 
 def sendReport(htmlReport):
-    hasAlerts = len(pingOKAlerts) == 0 and len(pingNOKAlerts) == 0 
+    hasAlerts = len(pingOKAlerts) != 0 or len(pingNOKAlerts) != 0
     if not jsonconfig["always_send_report"] and hasAlerts:
         return
     
