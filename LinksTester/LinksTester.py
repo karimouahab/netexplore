@@ -134,8 +134,9 @@ def parseConfiguration():
         parser.print_help()
         exit(1)
     parseConfigurationFile(cmdLineOptions.config_filename)
-    pingCmd += " -q -c " + str(jsonconfig["configuration"]["ping_count"]) + " -w 20"
-    
+    pingCmd += " -q -c " + str(jsonconfig["configuration"]["ping_count"]) + " -w" + str(jsonconfig["configuration"]["ping_timeout"])
+    if not cmdLineOptions.quiet:
+        print "ping command is : " + pingCmd
     ref_rtt_filename = jsonconfig["configuration"]["reference_file"]
     if "" == ref_rtt_filename:
         print "Please provide a reference rtt filename"

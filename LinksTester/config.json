@@ -7,7 +7,8 @@
 	    "ssh_options"		: "-o 'PasswordAuthentication=no' -o 'StrictHostKeyChecking=no'",
 	    "reference_file"	: "reference_rtt.json",
 	    "deviation_percent" : 5,
-	    "ping_count"		: 2,
+	    "ping_count"		: 20,
+	    "ping_timeout"		: 20,
 	    "always_send_report" : false,
 	    "machines": [
 	      {"host": "localhost", 		"datacenter": "DC1"},
