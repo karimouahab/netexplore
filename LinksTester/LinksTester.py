@@ -210,7 +210,7 @@ def printPings(results):
         return
     for src in results:
         for tgt in results[src]:
-            print str(results[src][tgt])
+            print "{} to {} : {}".format(src, tgt, str(results[src][tgt]))
 
 """Returns an HTML view of all the ping alert messages
 """ 
