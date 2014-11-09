@@ -30,6 +30,8 @@ pingOKAlerts                = list()
 pingNOKAlerts               = list()
 allErrors                   = list()
 
+PING_NA = "N/A"
+
 OK_COLOR    = "#C1FFC1"
 NOK_COLOR   = "#FF0000"
 BET_COLOR   = "#33A1C9"
@@ -82,8 +84,8 @@ def parseConfigurationFile(fileName):
     if not cmdLineOptions.quiet:
         print "Getting servers configuration from " + fileName
     with open(fileName) as machinesFile:
-        jsonconfig  = json.load(machinesFile)
-        machines    = jsonconfig["configuration"]["machines"]
+        jsonconfig  = json.load(machinesFile)["configuration"]
+        machines    = jsonconfig["machines"]
 
 def parseReferenceFile(fileName):
     if not cmdLineOptions.quiet:
@@ -101,7 +103,7 @@ def parseReferenceFile(fileName):
 def getReferencePing(src, tgt):
     if refMatrix.has_key(src) and refMatrix[src].has_key(tgt):
         return refMatrix[src][tgt];
-    return Ping("0", "N/A", "0", "0")
+    return Ping("0", PING_NA, "0", "0")
 
 def jdefault(o):
     if isinstance(o, Machine):
@@ -134,10 +136,10 @@ def parseConfiguration():
         parser.print_help()
         exit(1)
     parseConfigurationFile(cmdLineOptions.config_filename)
-    pingCmd += " -q -c " + str(jsonconfig["configuration"]["ping_count"]) + " -w" + str(jsonconfig["configuration"]["ping_timeout"])
+    pingCmd += " -q -c " + str(jsonconfig["ping_count"]) + " -w" + str(jsonconfig["ping_timeout"])
     if not cmdLineOptions.quiet:
         print "ping command is : " + pingCmd
-    ref_rtt_filename = jsonconfig["configuration"]["reference_file"]
+    ref_rtt_filename = jsonconfig["reference_file"]
     if "" == ref_rtt_filename:
         print "Please provide a reference rtt filename"
         parser.print_help()
@@ -155,12 +157,12 @@ def parsePingOutput(pingStr):
                     str(float(match.group(4)) * PingOutputToMicroFactor)
                     )   
     except Exception:
-        return Ping("N/A", "N/A", "N/A", "N/A")
+        return Ping(PING_NA, PING_NA, PING_NA, PING_NA)
 
 
 def executePings():
-    sshUser     = jsonconfig["configuration"]["ssh_user"]
-    sshOptions  = jsonconfig["configuration"]["ssh_options"]
+    sshUser     = jsonconfig["ssh_user"]
+    sshOptions  = jsonconfig["ssh_options"]
     for source in machines:
         for target in machines:
             srcHost         = source["host"]
@@ -169,8 +171,8 @@ def executePings():
             tgtDatacenter   = target["datacenter"]
             srcMachine = Machine(srcHost, srcDatacenter)
             tgtMachine = Machine(tgtHost, tgtDatacenter)
-            if srcMachine == tgtMachine:
-                output = "N/A"
+            if srcMachine == tgtMachine and not jsonconfig["allow_ping_to_self"]:
+                output = "-"
             else:
                 try:
                     output = subprocess.check_output("{} {} {}@localhost {} {} | grep rtt".format(sshCmd, sshOptions, sshUser, pingCmd, tgtHost) , shell=True)
@@ -182,7 +184,7 @@ def executePings():
             pingMatrix[srcMachine][tgtMachine] = parsePingOutput(output)
     printPings(pingMatrix)
     if cmdLineOptions.genReference:
-        generateReferenceFile(pingMatrix, jsonconfig["configuration"]["reference_file"])
+        generateReferenceFile(pingMatrix, jsonconfig["reference_file"])
     return pingMatrix            
 
 def printPings(results):
@@ -215,10 +217,17 @@ def getAllErrorsHtmlMessages():
         result += "</ul>"
     return result
 
+def isfloat(string):
+    try:
+        float(string)
+        return True;
+    except:
+        return False
+
 def getHtmlComparisonToReference(srcMachine, tgtMachine, newPing, refPing):
     diff = 0
-    deviationPercent = jsonconfig["configuration"]["deviation_percent"]
-    if newPing.avg != "N/A" and refPing.avg != "N/A":
+    deviationPercent = jsonconfig["deviation_percent"]
+    if isfloat(newPing.avg) and isfloat(refPing.avg):
         diff = 100 * (1 - float(newPing.avg) / float(refPing.avg))
     color = OK_COLOR
     if diff > 0 and diff > deviationPercent:
@@ -281,11 +290,11 @@ def generateOutput(newTable, refTable):
     return htmlOut
 
 def sendReport(htmlReport):
-    if not jsonconfig["configuration"]["always_send_report"] and len(pingOKAlerts) == 0 and len(pingNOKAlerts) == 0 :
+    if not jsonconfig["always_send_report"] and len(pingOKAlerts) == 0 and len(pingNOKAlerts) == 0 :
         return
     
-    fromMail    = jsonconfig["configuration"]["mail_from"]
-    toMail      = jsonconfig["configuration"]["mail_to"]
+    fromMail    = jsonconfig["mail_from"]
+    toMail      = jsonconfig["mail_to"]
     if not cmdLineOptions.quiet:
         print "sending report from {} to {}".format(fromMail, toMail)
     
