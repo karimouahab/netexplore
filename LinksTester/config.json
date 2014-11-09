@@ -1,19 +1,19 @@
 {
 	"configuration": 
 	{
-	    "mail_from" 			: "karim@ouahab.com",
-	    "mail_to"				: "karim.ouahab@gmail.com;karim@ouahab.com",
-	    "ssh_user"				: "karim",
-	    "ssh_cmd"				: "ssh",
-	    "ssh_options"			: "-o 'PasswordAuthentication=no' -o 'StrictHostKeyChecking=no' -o 'ConnectTimeout=10'",
+	    "mail_from" 		: "karim@ouahab.com",
+	    "mail_to"			: "karim.ouahab@gmail.com;karim@ouahab.com",
+	    "ssh_user"			: "karim",
+	    "ssh_cmd"			: "ssh",
+	    "ssh_options"		: "-o 'PasswordAuthentication=no' -o 'StrictHostKeyChecking=no' -o 'ConnectTimeout=10'",
 	    "reference_file"		: "reference_rtt.json",
 	    "deviation_percent" 	: 5,
-	    "ping_cmd"				: "ping",
-	    "ping_count"			: 1,
-	    "ping_timeout"			: 20,
+	    "ping_cmd"			: "ping",
+	    "ping_count"		: 1,
+	    "ping_timeout"		: 20,
 	    "allow_ping_to_self"	: false,
 	    "always_send_report"	: false,
-	    "display_only_datacenters" : true,
+	    "display_only_datacenters"	: true,
 	    "machines": [
 	      {"host": "localhost", 		"datacenter": "DC1"},
 	      {"host": "www.google.com", 	"datacenter": "DC2"},
