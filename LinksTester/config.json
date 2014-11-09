@@ -1,0 +1,19 @@
+{
+	"configuration": 
+	{
+	    "mail_from" 		: "karim@ouahab.com",
+	    "mail_to"			: "karim.ouahab@gmail.com;karim@ouahab.com",
+	    "ssh_user"			: "karim",
+	    "ssh_options"		: "-o 'PasswordAuthentication=no' -o 'StrictHostKeyChecking=no'",
+	    "reference_file"	: "reference_rtt.json",
+	    "deviation_percent" : 5,
+	    "ping_count"		: 2,
+	    "always_send_report" : false,
+	    "machines": [
+	      {"host": "localhost", 		"datacenter": "DC1"},
+	      {"host": "www.google.com", 	"datacenter": "DC2"},
+	      {"host": "www.hardware.fr", 	"datacenter": "DC3"},
+	      {"host": "www.mickey.mouse", 	"datacenter": "DC4"}
+	    ]
+	}
+}

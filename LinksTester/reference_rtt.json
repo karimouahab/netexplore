@@ -1,0 +1,16 @@
+localhost|DC1->localhost|DC1 : N/A
+localhost|DC1->www.google.com|DC2 : 3437.0
+localhost|DC1->www.mickey.mouse|DC4 : N/A
+localhost|DC1->www.hardware.fr|DC3 : 262659.0
+www.google.com|DC2->localhost|DC1 : 12.0
+www.google.com|DC2->www.google.com|DC2 : N/A
+www.google.com|DC2->www.mickey.mouse|DC4 : N/A
+www.google.com|DC2->www.hardware.fr|DC3 : 264617.0
+www.mickey.mouse|DC4->localhost|DC1 : 30.0
+www.mickey.mouse|DC4->www.google.com|DC2 : 3776.0
+www.mickey.mouse|DC4->www.mickey.mouse|DC4 : N/A
+www.mickey.mouse|DC4->www.hardware.fr|DC3 : 263360.0
+www.hardware.fr|DC3->localhost|DC1 : 16.0
+www.hardware.fr|DC3->www.google.com|DC2 : 3113.0
+www.hardware.fr|DC3->www.mickey.mouse|DC4 : N/A
+www.hardware.fr|DC3->www.hardware.fr|DC3 : N/A
