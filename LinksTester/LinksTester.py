@@ -16,6 +16,7 @@ import socket                       # For gethostname
 import time
 import collections
 import smtplib
+import os
 from email.mime.text import MIMEText
 
 #global variables
@@ -66,7 +67,7 @@ class Ping():
         return "min={} max={} avg={} mdev={}".format(self.min, self.max, self.avg, self.mdev)
 
 class PingAlert():
-    """This class encapsulates an alert, which is generated when a ping resultis abnormally low or high
+    """This class encapsulates an alert, which is generated when a ping result is abnormally low or high
     """    
     def __init__(self, srcMachine, tgtMachine, ping, refPing):
         self.srcMachine      = srcMachine
@@ -75,13 +76,20 @@ class PingAlert():
         self.refPing         = refPing
         
     def __str__(self):
-        diff = 100 * (1 - float(self.ping) / float(self.refPing))
-        return "RTT from {} to {} ".format(self.srcMachine.datacenter, self.tgtMachine.datacenter) + ("increased" if diff < 0 else "decreased") + " : from {} us to {} us ({} %)".format(self.refPing, self.ping, "{0:.1f}".format(diff))
+        diff = 100 * (1 - float(self.ping.avg) / float(self.refPing.avg))
+        return "RTT from {} to {} {} : from {} us to {} us ({} %) | ref min : {} us, ref max : {} us".format(
+                                           self.srcMachine.datacenter,
+                                           self.tgtMachine.datacenter,
+                                           "increased" if diff < 0 else "decreased",
+                                           self.refPing.avg,
+                                           self.ping.avg, "{0:.1f}".format(diff),
+                                           self.refPing.min,
+                                           self.refPing.max)
 
 """Parse the json configuration file. The configuration node is stored in 'jsonconfig'
 """  
 def parseConfigurationFile(fileName):
-    global machines, jsonconfig
+    global jsonconfig, machines
     if cmdLineOptions.verbose:
         print "Getting servers configuration from " + fileName
     with open(fileName) as machinesFile:
@@ -95,10 +103,10 @@ def parseReferenceFile(fileName):
         print "Getting reference rtt from " + fileName
     with open(fileName) as referenceFile:
         for line in referenceFile:
-            match = re.search('(.*?)\|(.*?)->(.*?)\|(.*?) : (.*)', line)
+            match = re.search('(.*?)\|(.*?)->(.*?)\|(.*?) : min=(.*) max=(.*) avg=(.*) mdev=(.*)', line)
             srcMachine = Machine(match.group(1),match.group(2))
             tgtMachine = Machine(match.group(3),match.group(4))
-            ping       = Ping("0", match.group(5), "0", "0")
+            ping       = Ping(match.group(5), match.group(7), match.group(6), match.group(8))
             if not refMatrix.has_key(srcMachine):
                 refMatrix[srcMachine] = dict()
             refMatrix[srcMachine][tgtMachine] = ping
@@ -120,10 +128,11 @@ def generateReferenceFile(matrix, fileName):
     with open(fileName, "w") as refFile:
         for src in matrix:
             for tgt in matrix[src]:
-                refFile.write("{}->{} : {}\n".format(src, tgt, matrix[src][tgt].avg))
+                ping = matrix[src][tgt]
+                refFile.write("{}->{} : min={} max={} avg={} mdev={}\n".format(src, tgt, ping.min, ping.max, ping.avg, ping.mdev))
 
 def parseConfiguration():
-    global cmdLineOptions
+    global cmdLineOptions, jsonconfig
     parser = OptionParser()
     
     parser.add_option("-f", "--file", dest="config_filename",
@@ -248,68 +257,80 @@ def isfloat(string):
     except:
         return False
 
-def getHtmlComparisonToReference(srcMachine, tgtMachine, results):
+def getHtmlComparisonToReference(srcMachine, tgtMachine, results, isreference):
     newPing = results[srcMachine][tgtMachine]
-    refPing = getReferencePing(srcMachine, tgtMachine)
-    diff = 0
+    if isreference:
+        return "bgcolor=" + OK_COLOR + ">" + newPing.avg  
+    
+    refPing     = getReferencePing(srcMachine, tgtMachine)
+    diff        = 0
     diffPercent = 0
+    devToAverage= 0
     deviationPercent    = jsonconfig["deviation_percent"]
     deviationMicros     = jsonconfig["deviation_micros"]
+    pingStr = newPing.avg
+    
     if isfloat(newPing.avg) and isfloat(refPing.avg):
-        diffPercent = 100 * (1 - float(newPing.avg) / float(refPing.avg))
-        diff = abs(float(newPing.avg) - float(refPing.avg))
+        pingStr = str(float(newPing.avg)/1000) + " ms" if float(newPing.avg) > 1000 else str(float(newPing.avg)) + " us"
+        devToAverage = 100 * (1 - float(newPing.avg) / float(refPing.avg))
+        if devToAverage < 0 :
+            diffPercent = 100 * (1 - float(newPing.avg) / float(refPing.max))
+            diff = abs(float(newPing.avg) - float(refPing.max))
+        else:
+            diffPercent = 100 * (1 - float(newPing.avg) / float(refPing.min))
+            diff = abs(float(newPing.avg) - float(refPing.min))
      
-    if diffPercent > 0 and (diffPercent > deviationPercent or diff > deviationMicros): 
-        pingOKAlerts.append(PingAlert(srcMachine, tgtMachine, newPing.avg, refPing.avg))
-        return "bgcolor=" + BET_COLOR + "><b>" + newPing.avg + "</b>" 
-    elif diffPercent < 0 and (-diffPercent > deviationPercent or diff > deviationMicros):
-        pingNOKAlerts.append(PingAlert(srcMachine, tgtMachine, newPing.avg, refPing.avg))
-        return "bgcolor=" + NOK_COLOR + "><b>" + newPing.avg + "</b>" 
-    return "bgcolor=" + OK_COLOR + ">" + newPing.avg    
+    if devToAverage > 0 and (diffPercent > deviationPercent or diff > deviationMicros): 
+        pingOKAlerts.append(PingAlert(srcMachine, tgtMachine, newPing, refPing))
+        return "bgcolor=" + BET_COLOR + "><b>" + pingStr + "</b>" 
+    elif devToAverage < 0 and (-diffPercent > deviationPercent or diff > deviationMicros):
+        pingNOKAlerts.append(PingAlert(srcMachine, tgtMachine, newPing, refPing))
+        return "bgcolor=" + NOK_COLOR + "><b>" + pingStr + "</b>" 
+    return "bgcolor=" + OK_COLOR + ">" + pingStr    
 
-def generateHtmlTable(results):
+def generateHtmlTable(results, isreference):
     htmlTable = '<table border="1" style="width:100%" cellspacing="0.5" cellpadding="0" border="1" align="center" bgcolor="#FF7F50">'
     #Draw the header line
-    htmlTable += "<tr><td align='center'>From / To</td>"
+    htmlTable += "\n<tr>\n<td align='center'>From / To</td>\n"
     for src in results:
-        htmlTable += "<td align='center' bgcolor='#DBDBDB'><b>"
+        htmlTable += "\n<td align='center' bgcolor='#DBDBDB'><b>"
         if jsonconfig["display_only_datacenters"]:
             htmlTable += "{}".format(src.datacenter)
         else:
             htmlTable += "{} [{}]".format(src.datacenter, src.hostname)
-        htmlTable += "</b></td>"
-    htmlTable += "</tr>"
+        htmlTable += "</b></td>\n"
+    htmlTable += "</tr>\n"
     #Draw all the rows
     for src in results:
-        htmlTable += "<tr>"
+        htmlTable += "<tr>\n"
         htmlTable += "<td align='center' bgcolor='#DBDBDB'><b>"
         if jsonconfig["display_only_datacenters"]:
             htmlTable += "{}".format(src.datacenter)
         else:
             htmlTable += "{} [{}]".format(src.datacenter, src.hostname)
-        htmlTable += "</b></td>"
+        htmlTable += "</b></td>\n"
         for tgt in results[src]:
             htmlTable += "<td align='center' "
-            htmlTable += getHtmlComparisonToReference(src, tgt, results)
-            htmlTable += "</td>"  
-        htmlTable += "</tr>"
+            htmlTable += getHtmlComparisonToReference(src, tgt, results, isreference)
+            htmlTable += "</td>\n"  
+        htmlTable += "</tr>\n"
             
     htmlTable += "</table>"
     return htmlTable
 
 """Given a reference and a new HTML version of the RTT tables, generate the final HTML body
 """ 
-def generateOutput(newTable, refTable):
+def generateOutput(newTable, refTable, printReference):
     hostname = socket.gethostname()
     htmlOut = '''  
 <html>  
     <head>  
-    <title> Data Centers links round trip times (microseconds) </title>  
+    <title> Data Centers links round trip times </title>  
     </head>
     <body>
         <br>
         <br>
-        <b>Latest average RTT (microseconds) on {} :</b>
+        <b>Latest average RTT on {} :</b>
         <br>
         {}
         <br>
@@ -321,15 +342,21 @@ def generateOutput(newTable, refTable):
         {}
         <br>
         <br>     
-        <b>Reference average RTT (microseconds) :</b>
+        {}
         <br>
         {}
         <br>
-        <i>Program was executed from {}</i>
+        <i>Program was executed by {} from {}</i>
     </body>  
 </html>
     
-    '''.format(time.strftime("%d/%m/%Y at %H:%M:%S"), newTable, getPingAlertHtmlMessages(), getAllErrorsHtmlMessages(), refTable, hostname)
+    '''.format(time.strftime("%d/%m/%Y at %H:%M:%S"),
+                newTable, getPingAlertHtmlMessages(),
+                 getAllErrorsHtmlMessages(),
+                "<b>Reference average RTT :</b>" if printReference else "",
+                 refTable if printReference else "",
+                 os.getlogin(), hostname
+                 )
     #with open("pings.html", "w") as output:
     #    output.write(htmlOut)
     return htmlOut
@@ -359,21 +386,21 @@ def sendReport(htmlReport):
     
     # Send the message via our own SMTP server, but don't include the
     # envelope header.
-    s = smtplib.SMTP("smtp.gmail.com:587")
+    s = smtplib.SMTP(jsonconfig["smtp_server"])
     s.ehlo()
     s.starttls()
-    s.login("karim.ouahab", "")
+    #s.login("karim.ouahab", "")
     s.sendmail(fromMail, [toMail], msg.as_string())
     s.quit()
 
 if __name__ == '__main__':
     parseConfiguration()
-    newRun = generateHtmlTable(executePings())
+    newRun = generateHtmlTable(executePings(), False)
     
     if cmdLineOptions.genReference: #don't generate a report if a new reference file is being generated
         exit(0)
     
-    refRun = generateHtmlTable(refMatrix)
-    report = generateOutput(newRun, refRun)
+    refRun = generateHtmlTable(refMatrix, True)
+    report = generateOutput(newRun, refRun, jsonconfig["print_reference_table"])
     sendReport(report)
     
